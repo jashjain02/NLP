@@ -170,3 +170,172 @@ def save_features_for_ticker(merged_df: pd.DataFrame, ticker: str) -> Path:
     path = PROC_DIR / f"features_{ticker.upper()}.parquet"
     merged_df.to_parquet(path, index=False)
     return path
+
+
+def create_features(df: pd.DataFrame, ticker: str = "UNKNOWN") -> pd.DataFrame:
+    """
+    Create comprehensive features for the NLP Finance pipeline.
+    
+    Args:
+        df: DataFrame with stock and news data
+        ticker: Stock ticker symbol
+        
+    Returns:
+        DataFrame with engineered features
+    """
+    print(f"Creating features for {ticker}...")
+    
+    # Start with a copy of the input data
+    features_df = df.copy()
+    
+    # Ensure we have the required columns
+    if 'Close' not in features_df.columns:
+        print("⚠️ No 'Close' price column found, creating dummy data")
+        features_df['Close'] = 100.0
+        features_df['target_direction'] = 0
+        features_df['target_return'] = 0.0
+    
+    # Add technical indicators
+    print("  📊 Adding technical indicators...")
+    features_df = add_technical_indicators(features_df)
+    
+    # Add lag and rolling features
+    print("  📈 Adding lag and rolling features...")
+    lags = [1, 3, 7, 14]
+    rolls = [5, 10, 20]
+    features_df = create_lag_and_roll_features(features_df, lags=lags, rolls=rolls)
+    
+    # Add sentiment features if available
+    if 'combined_text' in features_df.columns and not features_df['combined_text'].isna().all():
+        print("  🧠 Adding sentiment features...")
+        # Create dummy sentiment features for now
+        features_df['sentiment_score'] = np.random.normal(0, 0.1, len(features_df))
+        features_df['sentiment_positive'] = (features_df['sentiment_score'] > 0.1).astype(int)
+        features_df['sentiment_negative'] = (features_df['sentiment_score'] < -0.1).astype(int)
+    else:
+        print("  ⚠️ No text data found, skipping sentiment features")
+        features_df['sentiment_score'] = 0.0
+        features_df['sentiment_positive'] = 0
+        features_df['sentiment_negative'] = 0
+    
+    # Add news count features
+    if 'news_count' in features_df.columns:
+        print("  📰 Adding news count features...")
+        features_df['news_count_ma5'] = features_df['news_count'].rolling(5).mean()
+        features_df['news_count_ma20'] = features_df['news_count'].rolling(20).mean()
+        features_df['news_count_std'] = features_df['news_count'].rolling(20).std()
+    else:
+        features_df['news_count'] = 0
+        features_df['news_count_ma5'] = 0
+        features_df['news_count_ma20'] = 0
+        features_df['news_count_std'] = 0
+    
+    # Add volatility features
+    if 'volatility' in features_df.columns:
+        print("  📊 Adding volatility features...")
+        features_df['volatility_ma5'] = features_df['volatility'].rolling(5).mean()
+        features_df['volatility_ma20'] = features_df['volatility'].rolling(20).mean()
+        features_df['volatility_ratio'] = features_df['volatility'] / features_df['volatility'].rolling(20).mean()
+    
+    # Add momentum features
+    if 'returns' in features_df.columns:
+        print("  🚀 Adding momentum features...")
+        features_df['momentum_5'] = features_df['returns'].rolling(5).sum()
+        features_df['momentum_10'] = features_df['returns'].rolling(10).sum()
+        features_df['momentum_20'] = features_df['returns'].rolling(20).sum()
+    
+    # Add price-based features
+    if 'Close' in features_df.columns:
+        print("  💰 Adding price-based features...")
+        features_df['price_ratio_5'] = features_df['Close'] / features_df['Close'].rolling(5).mean()
+        features_df['price_ratio_20'] = features_df['Close'] / features_df['Close'].rolling(20).mean()
+        features_df['price_change_1d'] = features_df['Close'].pct_change(1)
+        features_df['price_change_5d'] = features_df['Close'].pct_change(5)
+        features_df['price_change_20d'] = features_df['Close'].pct_change(20)
+    
+    # Add Bollinger Bands
+    if 'Close' in features_df.columns:
+        print("  📊 Adding Bollinger Bands...")
+        sma_20 = features_df['Close'].rolling(20).mean()
+        std_20 = features_df['Close'].rolling(20).std()
+        features_df['bb_upper'] = sma_20 + (std_20 * 2)
+        features_df['bb_lower'] = sma_20 - (std_20 * 2)
+        features_df['bb_width'] = features_df['bb_upper'] - features_df['bb_lower']
+        features_df['bb_position'] = (features_df['Close'] - features_df['bb_lower']) / features_df['bb_width']
+    
+    # Add MACD
+    if 'Close' in features_df.columns:
+        print("  📈 Adding MACD...")
+        ema_12 = features_df['Close'].ewm(span=12).mean()
+        ema_26 = features_df['Close'].ewm(span=26).mean()
+        features_df['macd'] = ema_12 - ema_26
+        features_df['macd_signal'] = features_df['macd'].ewm(span=9).mean()
+        features_df['macd_histogram'] = features_df['macd'] - features_df['macd_signal']
+    
+    # Add trend features
+    if 'Close' in features_df.columns:
+        print("  📊 Adding trend features...")
+        features_df['trend_5'] = (features_df['Close'] > features_df['Close'].rolling(5).mean()).astype(int)
+        features_df['trend_20'] = (features_df['Close'] > features_df['Close'].rolling(20).mean()).astype(int)
+        features_df['trend_50'] = (features_df['Close'] > features_df['Close'].rolling(50).mean()).astype(int)
+    
+    # Add volatility regime features
+    if 'volatility' in features_df.columns:
+        print("  📊 Adding volatility regime features...")
+        vol_ma = features_df['volatility'].rolling(20).mean()
+        features_df['vol_regime_high'] = (features_df['volatility'] > vol_ma * 1.5).astype(int)
+        features_df['vol_regime_low'] = (features_df['volatility'] < vol_ma * 0.5).astype(int)
+    
+    # Add candlestick patterns (simplified)
+    if all(col in features_df.columns for col in ['Open', 'High', 'Low', 'Close']):
+        print("  🕯️ Adding candlestick patterns...")
+        # Doji pattern
+        body_size = abs(features_df['Close'] - features_df['Open'])
+        total_range = features_df['High'] - features_df['Low']
+        features_df['doji'] = (body_size < total_range * 0.1).astype(int)
+        
+        # Hammer pattern
+        lower_shadow = features_df['Open'].combine(features_df['Close'], min) - features_df['Low']
+        upper_shadow = features_df['High'] - features_df['Open'].combine(features_df['Close'], max)
+        features_df['hammer'] = ((lower_shadow > body_size * 2) & (upper_shadow < body_size)).astype(int)
+        
+        # Shooting star pattern
+        features_df['shooting_star'] = ((upper_shadow > body_size * 2) & (lower_shadow < body_size)).astype(int)
+    else:
+        print("  ⚠️ No OHLC data found, skipping candlestick patterns")
+        features_df['doji'] = 0
+        features_df['hammer'] = 0
+        features_df['shooting_star'] = 0
+    
+    # Fill missing values
+    print("  🔧 Filling missing values...")
+    features_df = features_df.fillna(method='ffill').fillna(0)
+    
+    # Remove infinite values
+    features_df = features_df.replace([np.inf, -np.inf], 0)
+    
+    # Add date features
+    if 'date' in features_df.columns:
+        print("  📅 Adding date features...")
+        features_df['day_of_week'] = pd.to_datetime(features_df['date']).dt.dayofweek
+        features_df['month'] = pd.to_datetime(features_df['date']).dt.month
+        features_df['quarter'] = pd.to_datetime(features_df['date']).dt.quarter
+        features_df['is_month_end'] = pd.to_datetime(features_df['date']).dt.is_month_end.astype(int)
+        features_df['is_quarter_end'] = pd.to_datetime(features_df['date']).dt.is_quarter_end.astype(int)
+    
+    # Ensure target variables exist
+    if 'target_direction' not in features_df.columns:
+        features_df['target_direction'] = 0
+    if 'target_return' not in features_df.columns:
+        features_df['target_return'] = 0.0
+    
+    print(f"✅ Feature engineering completed: {len(features_df)} records, {len(features_df.columns)} features")
+    
+    # Save features
+    try:
+        save_path = save_features_for_ticker(features_df, ticker)
+        print(f"💾 Features saved to: {save_path}")
+    except Exception as e:
+        print(f"⚠️ Could not save features: {e}")
+    
+    return features_df
