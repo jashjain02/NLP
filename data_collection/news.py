@@ -493,5 +493,73 @@ def fetch_news_moneycontrol_and_scrape(query: str, from_date: str, to_date: str,
     return df
 
 
+def collect_news_multi_source(ticker: str, lookback_days: int = 120, max_articles: int = 500) -> pd.DataFrame:
+    """
+    Collect news from multiple sources for a given ticker.
+    
+    Args:
+        ticker: Stock ticker symbol
+        lookback_days: Number of days to look back
+        max_articles: Maximum number of articles to collect
+        
+    Returns:
+        DataFrame with news articles
+    """
+    print(f"Collecting news for {ticker} from multiple sources...")
+    
+    # Calculate date range
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=lookback_days)
+    
+    from_date = start_date.strftime('%Y-%m-%d')
+    to_date = end_date.strftime('%Y-%m-%d')
+    
+    all_news = []
+    
+    # Try different news sources
+    sources = [
+        ("MoneyControl", lambda: fetch_news_moneycontrol_and_scrape(ticker, from_date, to_date, max_articles // 4)),
+        ("NewsAPI", lambda: fetch_news_newsapi(os.getenv('NEWSAPI_KEY'), ticker, from_date, to_date, max_results=max_articles // 4)),
+        ("MarketAux", lambda: fetch_news_marketaux(os.getenv('MARKETAUX_API_KEY'), ticker, from_date, to_date, max_results=max_articles // 4)),
+        ("RSS", lambda: fetch_news_rss_and_scrape(ticker, max_articles // 4)),
+        ("GDELT", lambda: fetch_news_gdelt_and_scrape(ticker, from_date, to_date, max_articles // 4))
+    ]
+    
+    for source_name, fetch_func in sources:
+        try:
+            print(f"  Fetching from {source_name}...")
+            news_df = fetch_func()
+            
+            if news_df is not None and not news_df.empty:
+                # Add source column
+                news_df['source'] = source_name
+                all_news.append(news_df)
+                print(f"    ✅ {source_name}: {len(news_df)} articles")
+            else:
+                print(f"    ⚠️ {source_name}: No articles found")
+                
+        except Exception as e:
+            print(f"    ❌ {source_name}: Error - {e}")
+            continue
+    
+    # Combine all news
+    if all_news:
+        combined_df = pd.concat(all_news, ignore_index=True)
+        
+        # Remove duplicates based on URL
+        if 'url' in combined_df.columns:
+            combined_df = combined_df.drop_duplicates(subset=['url'], keep='first')
+        
+        # Sort by published date
+        if 'published' in combined_df.columns:
+            combined_df = combined_df.sort_values('published', ascending=False)
+        
+        print(f"✅ Total articles collected: {len(combined_df)}")
+        return combined_df
+    else:
+        print("❌ No articles collected from any source")
+        return pd.DataFrame()
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
