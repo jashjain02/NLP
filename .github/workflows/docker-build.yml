@@ -49,6 +49,7 @@ jobs:
       uses: docker/build-push-action@v5
       with:
         context: .
+        file: Dockerfile.simple
         platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
@@ -78,7 +79,7 @@ jobs:
 
     - name: Build test image
       run: |
-        docker build -t nlp-finance-test:latest .
+        docker build -f Dockerfile.simple -t nlp-finance-test:latest .
 
     - name: Test Docker image
       run: |
@@ -89,7 +90,7 @@ jobs:
         sleep 30
         
         # Test health check
-        curl -f http://localhost:8501/_stcore/health || exit 1
+        python -c "import requests; requests.get('http://localhost:8501/_stcore/health')" || exit 1
         
         # Clean up
         docker stop nlp-test
