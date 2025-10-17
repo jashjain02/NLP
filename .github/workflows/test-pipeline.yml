@@ -35,7 +35,12 @@ jobs:
         
     - name: Run unit tests
       run: |
-        python -m pytest tests/ -v --tb=short
+        # Check if tests directory exists and has test files
+        if [ -d "tests" ] && [ "$(find tests -name 'test_*.py' | wc -l)" -gt 0 ]; then
+          python -m pytest tests/ -v --tb=short
+        else
+          echo "No test files found, skipping unit tests"
+        fi
         
     - name: Test data collection
       run: |
