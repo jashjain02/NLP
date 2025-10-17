@@ -184,8 +184,9 @@ if run_btn:
         daily_agg = aggregate_daily_sentiment(sent_df)
 
     merged = merge_with_stock(stock_df, daily_agg)
-    feats = create_lag_and_roll_features(merged)
-    feats = add_technical_indicators(feats)
+    # Use the same comprehensive feature engineering as training
+    from features.features import create_features
+    feats = create_features(merged, ticker)
 
     clf = load_classifier()
     if clf is None:
@@ -197,16 +198,13 @@ if run_btn:
             if row.empty:
                 row = feats.tail(1).copy()
 
-            # Match training feature selection (see main.py)
+            # Use all feature columns except target and date columns
             feature_cols = [
-                c for c in feats.columns if (
-                    c.startswith('sent_') or c.startswith('count_roll_') or
-                    c in ['daily_mean_sentiment','daily_count'] or
-                    c.startswith('ma_') or c.startswith('price_') or c.startswith('volatility_') or
-                    c.startswith('momentum_') or c.startswith('bb_') or c.startswith('rsi_') or
-                    c.startswith('macd') or c.startswith('trend_') or c.startswith('volatility_regime') or
-                    c in ['high_low_ratio', 'close_open_ratio', 'volume_ratio', 'doji', 'hammer', 'shooting_star']
-                )
+                c for c in feats.columns if c not in [
+                    'date', 'target_direction', 'target_return', 'trading_date',
+                    'daily_mean_sentiment', 'daily_count', 'daily_pos_count', 
+                    'daily_neg_count', 'daily_neutral_count'
+                ]
             ]
 
             # Align with saved feature names if available

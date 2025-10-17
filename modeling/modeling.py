@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Dict, Generator, Iterable, Optional, Tuple
 
@@ -131,6 +132,15 @@ def train_classifiers(
         }
         # Save
         joblib.dump(gs.best_estimator_, MODELS_DIR / f"clf_{name}.joblib")
+        
+        # Save feature names for prediction
+        if hasattr(X_train, 'columns'):
+            feature_names = list(X_train.columns)
+        else:
+            feature_names = [f"feature_{i}" for i in range(X_train.shape[1])]
+        
+        with open(MODELS_DIR / "feature_names.json", "w") as f:
+            json.dump(feature_names, f)
 
     # Create ensemble voting classifier if we have multiple models
     if len(results) > 1:
@@ -240,6 +250,15 @@ def train_regressors(
             "cv_results": gs.cv_results_,
         }
         joblib.dump(gs.best_estimator_, MODELS_DIR / f"reg_{name}.joblib")
+        
+        # Save feature names for prediction (same as classifier)
+        if hasattr(X_train, 'columns'):
+            feature_names = list(X_train.columns)
+        else:
+            feature_names = [f"feature_{i}" for i in range(X_train.shape[1])]
+        
+        with open(MODELS_DIR / "feature_names.json", "w") as f:
+            json.dump(feature_names, f)
 
     # Create ensemble voting regressor if we have multiple models
     if len(results) > 1:
