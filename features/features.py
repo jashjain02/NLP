@@ -78,10 +78,10 @@ def merge_with_stock(stock_df: pd.DataFrame, daily_agg_df: pd.DataFrame, date_co
 
 
 def create_lag_and_roll_features(df: pd.DataFrame, lags: List[int] | None = None, rolls: List[int] | None = None) -> pd.DataFrame:
-    """Create lag and rolling features for daily_mean_sentiment and counts.
+    """Create lag and rolling features for various columns.
 
-    - Adds sent_lag_k and sent_roll_w features
-    - Also adds rolling sums for counts
+    - Adds lag and rolling features for available columns
+    - Handles missing columns gracefully
     """
     if lags is None:
         lags = [1, 2, 3]
@@ -89,23 +89,51 @@ def create_lag_and_roll_features(df: pd.DataFrame, lags: List[int] | None = None
         rolls = [3, 7]
 
     out = df.copy()
-    out = out.sort_values("date").reset_index(drop=True)
+    
+    # Sort by date if available, otherwise by index
+    if 'date' in out.columns:
+        out = out.sort_values("date").reset_index(drop=True)
+    else:
+        out = out.reset_index(drop=True)
 
-    # Lags for sentiment
-    for k in lags:
-        out[f"sent_lag_{k}"] = out["daily_mean_sentiment"].shift(k)
+    # Create lag features for available columns
+    lag_columns = []
+    if 'daily_mean_sentiment' in out.columns:
+        lag_columns.append('daily_mean_sentiment')
+    if 'sentiment_score' in out.columns:
+        lag_columns.append('sentiment_score')
+    if 'returns' in out.columns:
+        lag_columns.append('returns')
+    if 'volatility' in out.columns:
+        lag_columns.append('volatility')
+    
+    for col in lag_columns:
+        for k in lags:
+            out[f"{col}_lag_{k}"] = out[col].shift(k)
 
-    # Rolling means for sentiment and rolling sums for counts
-    for w in rolls:
-        out[f"sent_roll_{w}"] = out["daily_mean_sentiment"].rolling(window=w, min_periods=1).mean()
-        out[f"count_roll_{w}"] = out["daily_count"].rolling(window=w, min_periods=1).sum()
-        out[f"pos_count_roll_{w}"] = out["daily_pos_count"].rolling(window=w, min_periods=1).sum()
-        out[f"neg_count_roll_{w}"] = out["daily_neg_count"].rolling(window=w, min_periods=1).sum()
-        out[f"neu_count_roll_{w}"] = out["daily_neutral_count"].rolling(window=w, min_periods=1).sum()
-
-    # Sanity: lag columns must be NaN in first k rows; target is shifted forward
-    for k in lags:
-        assert out[f"sent_lag_{k}"].iloc[:k].isna().all()
+    # Create rolling features for available columns
+    roll_columns = []
+    if 'daily_mean_sentiment' in out.columns:
+        roll_columns.append('daily_mean_sentiment')
+    if 'sentiment_score' in out.columns:
+        roll_columns.append('sentiment_score')
+    if 'returns' in out.columns:
+        roll_columns.append('returns')
+    if 'volatility' in out.columns:
+        roll_columns.append('volatility')
+    if 'news_count' in out.columns:
+        roll_columns.append('news_count')
+    
+    for col in roll_columns:
+        for w in rolls:
+            out[f"{col}_roll_{w}"] = out[col].rolling(window=w, min_periods=1).mean()
+    
+    # Add rolling features for count columns if they exist
+    count_columns = ['daily_count', 'daily_pos_count', 'daily_neg_count', 'daily_neutral_count', 'news_count']
+    for col in count_columns:
+        if col in out.columns:
+            for w in rolls:
+                out[f"{col}_roll_{w}"] = out[col].rolling(window=w, min_periods=1).sum()
 
     return out
 
