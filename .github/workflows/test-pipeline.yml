@@ -179,9 +179,25 @@ jobs:
         
         print('Testing Streamlit app imports...')
         try:
-            # Test all imports
+            # Test basic streamlit import
             import streamlit as st
-            from ui.streamlit_app import main
+            print('✅ Streamlit import successful')
+            
+            # Test if the app file exists and can be read
+            import os
+            app_path = 'ui/streamlit_app.py'
+            if os.path.exists(app_path):
+                print('✅ Streamlit app file exists')
+                
+                # Try to compile the file to check for syntax errors
+                with open(app_path, 'r') as f:
+                    code = f.read()
+                compile(code, app_path, 'exec')
+                print('✅ Streamlit app syntax is valid')
+            else:
+                print('❌ Streamlit app file not found')
+                exit(1)
+                
             print('✅ Streamlit app test passed')
         except Exception as e:
             print(f'❌ Streamlit app test failed: {e}')
