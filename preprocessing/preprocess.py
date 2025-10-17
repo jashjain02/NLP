@@ -4,6 +4,7 @@ from datetime import date as date_type, datetime, time as time_type
 from typing import Optional
 
 import pandas as pd
+import numpy as np
 
 try:  # Optional calendar
     import pandas_market_calendars as mcal  # type: ignore
@@ -122,3 +123,92 @@ def align_news_to_trading_day(
         )
     )
     return df
+
+
+def preprocess_data(stock_df: pd.DataFrame, news_df: Optional[pd.DataFrame] = None, ticker: str = "UNKNOWN") -> pd.DataFrame:
+    """
+    Preprocess stock and news data for the NLP Finance pipeline.
+    
+    Args:
+        stock_df: Stock price data DataFrame
+        news_df: News data DataFrame (optional)
+        ticker: Stock ticker symbol
+        
+    Returns:
+        Preprocessed DataFrame with aligned data
+    """
+    print(f"Preprocessing data for {ticker}...")
+    
+    # Ensure stock data has proper datetime index
+    if not isinstance(stock_df.index, pd.DatetimeIndex):
+        if 'date' in stock_df.columns:
+            stock_df = stock_df.set_index('date')
+        elif 'Date' in stock_df.columns:
+            stock_df = stock_df.set_index('Date')
+        else:
+            # Create a date range if no date column
+            stock_df.index = pd.date_range(start='2020-01-01', periods=len(stock_df), freq='D')
+    
+    # Ensure index is timezone-aware
+    if stock_df.index.tz is None:
+        stock_df.index = stock_df.index.tz_localize('UTC')
+    
+    # Create basic features from stock data
+    processed_df = stock_df.copy()
+    
+    # Add basic technical indicators
+    if 'Close' in processed_df.columns:
+        processed_df['returns'] = processed_df['Close'].pct_change()
+        processed_df['log_returns'] = np.log(processed_df['Close'] / processed_df['Close'].shift(1))
+        processed_df['volatility'] = processed_df['returns'].rolling(window=20).std()
+        processed_df['sma_5'] = processed_df['Close'].rolling(window=5).mean()
+        processed_df['sma_20'] = processed_df['Close'].rolling(window=20).mean()
+        processed_df['rsi'] = calculate_rsi(processed_df['Close'])
+        
+        # Create target variables
+        processed_df['target_direction'] = (processed_df['returns'] > 0).astype(int)
+        processed_df['target_return'] = processed_df['returns']
+    
+    # Process news data if available
+    if news_df is not None and not news_df.empty:
+        print(f"Processing {len(news_df)} news articles...")
+        
+        # Align news to trading days
+        if 'published' in news_df.columns:
+            news_df = align_news_to_trading_day(news_df, timestamp_col='published')
+            
+            # Aggregate news by trading date
+            news_agg = news_df.groupby('trading_date').agg({
+                'title': 'count',
+                'text': lambda x: ' '.join(x.dropna().astype(str))
+            }).rename(columns={'title': 'news_count', 'text': 'combined_text'})
+            
+            # Merge with stock data
+            processed_df = processed_df.join(news_agg, how='left')
+            processed_df['news_count'] = processed_df['news_count'].fillna(0)
+            processed_df['combined_text'] = processed_df['combined_text'].fillna('')
+        else:
+            print("⚠️ No 'published' column found in news data")
+    else:
+        print("⚠️ No news data provided")
+        processed_df['news_count'] = 0
+        processed_df['combined_text'] = ''
+    
+    # Fill missing values
+    processed_df = processed_df.fillna(method='ffill').fillna(0)
+    
+    # Add date column for easier handling
+    processed_df['date'] = processed_df.index.date
+    
+    print(f"✅ Preprocessing completed: {len(processed_df)} records")
+    return processed_df
+
+
+def calculate_rsi(prices: pd.Series, window: int = 14) -> pd.Series:
+    """Calculate RSI (Relative Strength Index)."""
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
