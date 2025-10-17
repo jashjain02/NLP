@@ -159,11 +159,11 @@ jobs:
             y_reg = np.random.randn(n_samples)
             
             # Test classifier training
-            clf_results = train_classifiers(X, y_clf, 'TEST')
+            clf_results = train_classifiers(X, y_clf)
             print(f'✅ Classifier training test passed: {len(clf_results)} models')
             
             # Test regressor training
-            reg_results = train_regressors(X, y_reg, 'TEST')
+            reg_results = train_regressors(X, y_reg)
             print(f'✅ Regressor training test passed: {len(reg_results)} models')
             
         except Exception as e:
