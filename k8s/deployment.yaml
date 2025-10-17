@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nlp-finance-app
+  labels:
+    app: nlp-finance-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nlp-finance-app
+  template:
+    metadata:
+      labels:
+        app: nlp-finance-app
+    spec:
+      containers:
+      - name: nlp-finance-app
+        image: ghcr.io/jashjain02/nlp:latest
+        ports:
+        - containerPort: 8501
+          name: streamlit
+        - containerPort: 8000
+          name: fastapi
+        env:
+        - name: NEWSAPI_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nlp-finance-secrets
+              key: newsapi-key
+        - name: MARKETAUX_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: nlp-finance-secrets
+              key: marketaux-key
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        - name: models-volume
+          mountPath: /app/models
+        - name: reports-volume
+          mountPath: /app/reports
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: nlp-finance-data-pvc
+      - name: models-volume
+        persistentVolumeClaim:
+          claimName: nlp-finance-models-pvc
+      - name: reports-volume
+        persistentVolumeClaim:
+          claimName: nlp-finance-reports-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nlp-finance-service
+spec:
+  selector:
+    app: nlp-finance-app
+  ports:
+  - name: streamlit
+    port: 8501
+    targetPort: 8501
+  - name: fastapi
+    port: 8000
+    targetPort: 8000
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nlp-finance-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nlp-finance-models-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nlp-finance-reports-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
