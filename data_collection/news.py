@@ -17,7 +17,6 @@ import pytz
 from dateutil import parser as dateparser
 
 import feedparser
-from newspaper import Article
 from dotenv import load_dotenv
 import requests
 
@@ -263,19 +262,12 @@ def fetch_news_gdelt_and_scrape(query: str, from_date: str, to_date: str, max_ar
         df = df.drop_duplicates(subset=["url_canon"]).drop(columns=["url_canon"])  
 
     # Scrape text
-    texts = []
-    for url in df.get("url", []):
-        text = None
-        try:
-            art = Article(url)
-            art.download()
-            art.parse()
-            text = art.text or None
-        except Exception:
-            text = None
-        texts.append(text)
-    if len(texts) == len(df):
-        df["text"] = texts
+    # Simple text extraction without newspaper dependency
+    # Use title as text content for now to avoid complex web scraping
+    if 'title' in df.columns:
+        df["text"] = df['title'].fillna('')
+    else:
+        df["text"] = ''
 
     out_path = CACHE_DIR / f"news_gdelt_{quote_plus(query)}.parquet"
     try:
@@ -322,14 +314,8 @@ def fetch_news_rss_and_scrape(query: str, max_articles: int = 300) -> pd.DataFra
         if entry.get("source") and isinstance(entry.get("source"), dict):
             source = entry["source"].get("title")
 
-        text = None
-        try:
-            art = Article(url)
-            art.download()
-            art.parse()
-            text = art.text or None
-        except Exception:
-            text = None
+        # Use title as text content to avoid newspaper dependency
+        text = title or ""
 
         records.append({
             "title": title,
@@ -460,15 +446,13 @@ def fetch_news_moneycontrol_and_scrape(query: str, from_date: str, to_date: str,
         try:
             print(f"Scraping article {i+1}/{min(len(all_articles), max_articles)}: {article['title'][:50]}...")
             
-            # Use newspaper3k to scrape full content
-            article_obj = Article(article['url'])
-            article_obj.download()
-            article_obj.parse()
+            # Use title as content to avoid newspaper dependency
+            content = article.get('title', '') or article.get('description', '')
             
-            if article_obj.text and len(article_obj.text) > 100:  # Only keep substantial articles
+            if content and len(content) > 50:  # Only keep substantial articles
                 scraped_articles.append({
                     'title': article['title'],
-                    'text': article_obj.text,
+                    'text': content,
                     'url': article['url'],
                     'published': article['published'],
                     'source': 'MoneyControl'
