@@ -1,0 +1,54 @@
+seed: 42
+
+ticker: RELIANCE.NS
+
+dates:
+  auto_recent_window: true
+  lookback_days: 365
+
+stock:
+  interval: 1d
+
+news:
+  mode: moneycontrol  # options: rss | newsapi | gdelt | moneycontrol
+  query: 'RELIANCE OR Reliance Industries OR RIL OR Reliance stock OR Reliance shares OR Reliance news'
+  page_size: 100
+  max_articles: 2000
+  api_key: ${NEWSAPI_KEY}
+
+nlp:
+  batch_size: 16
+
+model:
+  cv_splits: 3
+  holdout_days: 20
+  # Enhanced hyperparameters for better performance
+  classifiers:
+    logreg:
+      C: [0.01, 0.1, 1.0, 10.0, 100.0]
+      max_iter: [1000, 2000]
+    rf:
+      n_estimators: [100, 200, 300]
+      max_depth: [10, 15, 20, None]
+      min_samples_split: [2, 5, 10]
+      min_samples_leaf: [1, 2, 4]
+    xgboost:
+      n_estimators: [100, 200, 300]
+      max_depth: [3, 5, 7]
+      learning_rate: [0.01, 0.1, 0.2]
+      subsample: [0.8, 0.9, 1.0]
+  regressors:
+    ridge:
+      alpha: [0.01, 0.1, 1.0, 10.0, 100.0]
+    rfr:
+      n_estimators: [100, 200, 300]
+      max_depth: [10, 15, 20, None]
+      min_samples_split: [2, 5, 10]
+    xgboost:
+      n_estimators: [100, 200, 300]
+      max_depth: [3, 5, 7]
+      learning_rate: [0.01, 0.1, 0.2]
+
+backtest:
+  threshold: 0.55
+  tc: 0.0005

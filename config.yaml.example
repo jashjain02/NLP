@@ -1,0 +1,31 @@
+# Example configuration for main.py pipeline
+seed: 42
+
+ticker: AAPL
+
+dates:
+  auto_recent_window: true
+  # if false, provide explicit start/end as ISO strings
+  # start: "2025-01-01"
+  # end: "2025-03-31"
+
+stock:
+  interval: 1d
+
+news:
+  # mode: rss | newsapi | gdelt
+  mode: gdelt
+  query: AAPL
+  page_size: 100
+  max_articles: 800  # increase for ~200d windows with gdelt
+  api_key: ${NEWSAPI_KEY}
+
+nlp:
+  batch_size: 16
+
+model:
+  cv_splits: 5
+
+backtest:
+  threshold: 0.55
+  tc: 0.0005

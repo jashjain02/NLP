@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NLP Finance - Predict</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 2rem; color: #111; }
+      .card { max-width: 560px; padding: 1.5rem; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+      label { display: block; font-weight: 600; margin-top: 1rem; margin-bottom: 0.25rem; }
+      input[type="text"], input[type="date"] { width: 100%; padding: 0.6rem 0.7rem; border: 1px solid #d1d5db; border-radius: 8px; }
+      button { margin-top: 1rem; background: #111827; color: #fff; border: none; padding: 0.7rem 1rem; border-radius: 8px; cursor: pointer; }
+      button:hover { background: #000; }
+      .hint { color: #6b7280; font-size: 0.9rem; }
+    </style>
+  </head>
+  <body>
+    <h2>Stock Direction Prediction</h2>
+    <div class="card">
+      <form method="post" action="/predict/ui">
+        <label for="ticker">Ticker</label>
+        <input id="ticker" name="ticker" type="text" placeholder="e.g., AAPL, TSLA, RELIANCE.NS" required />
+        <div class="hint">Use Yahoo Finance symbols (e.g., AAPL, TSLA, RELIANCE.NS)</div>
+
+        <label for="date">Date</label>
+        <input id="date" name="date" type="date" required />
+        <div class="hint">YYYY-MM-DD (historical date; end of your window)</div>
+
+        <button type="submit">Predict</button>
+      </form>
+    </div>
+  </body>
+  </html>
+
+

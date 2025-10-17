@@ -1,0 +1,7 @@
+Granger Causality Tests: daily_mean_sentiment -> return
+lag=1: p-values {'ssr_ftest': np.float64(0.3379020357890975), 'ssr_chi2test': np.float64(0.32972832746703085), 'lrtest': np.float64(0.33069027149268526), 'params_ftest': np.float64(0.33790203578910094)}
+lag=2: p-values {'ssr_ftest': np.float64(0.5063288239738948), 'ssr_chi2test': np.float64(0.48920183079755186), 'lrtest': np.float64(0.4913086948681642), 'params_ftest': np.float64(0.5063288239738979)}
+lag=3: p-values {'ssr_ftest': np.float64(0.2724134359379622), 'ssr_chi2test': np.float64(0.24028166349347796), 'lrtest': np.float64(0.24776011650043253), 'params_ftest': np.float64(0.2724134359379525)}
+lag=4: p-values {'ssr_ftest': np.float64(0.23878543925049303), 'ssr_chi2test': np.float64(0.19375628251848828), 'lrtest': np.float64(0.20524514548324602), 'params_ftest': np.float64(0.2387854392504927)}
+lag=5: p-values {'ssr_ftest': np.float64(0.35263913930637225), 'ssr_chi2test': np.float64(0.28621809472855797), 'lrtest': np.float64(0.30146479972543594), 'params_ftest': np.float64(0.3526391393063646)}
+Interpretation: If several p-values < 0.05 for ssr_ftest/ssr_chi2test, sentiment Granger-causes returns at that lag.
