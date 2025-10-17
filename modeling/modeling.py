@@ -16,9 +16,16 @@ from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, VotingClassifier, VotingRegressor
 from sklearn.svm import SVC, SVR
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from imblearn.over_sampling import SMOTE
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.pipeline import Pipeline as ImbPipeline
+try:
+    from imblearn.over_sampling import SMOTE
+    from imblearn.under_sampling import RandomUnderSampler
+    from imblearn.pipeline import Pipeline as ImbPipeline
+    IMBLEARN_AVAILABLE = True
+except ImportError:
+    SMOTE = None
+    RandomUnderSampler = None
+    ImbPipeline = None
+    IMBLEARN_AVAILABLE = False
 
 try:
     from xgboost import XGBClassifier, XGBRegressor  # type: ignore
