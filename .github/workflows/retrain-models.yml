@@ -1,0 +1,120 @@
+name: Retrain Models
+
+on:
+  schedule:
+    # Retrain models weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      ticker:
+        description: 'Stock ticker to retrain'
+        required: true
+        default: 'AAPL'
+      force_retrain:
+        description: 'Force retrain even if models are recent'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Create directories
+      run: |
+        mkdir -p data/raw data/processed models reports/figs
+        
+    - name: Set up environment variables
+      run: |
+        echo "NEWSAPI_KEY=${{ secrets.NEWSAPI_KEY }}" >> $GITHUB_ENV
+        echo "MARKETAUX_API_KEY=${{ secrets.MARKETAUX_API_KEY }}" >> $GITHUB_ENV
+        echo "TICKER=${{ github.event.inputs.ticker || 'AAPL' }}" >> $GITHUB_ENV
+        
+    - name: Check if retraining is needed
+      id: check-retrain
+      run: |
+        TICKER="${{ env.TICKER }}"
+        FORCE_RETRAIN="${{ github.event.inputs.force_retrain }}"
+        
+        if [ "$FORCE_RETRAIN" = "true" ]; then
+          echo "retrain=true" >> $GITHUB_OUTPUT
+          echo "🔄 Force retrain enabled"
+        elif [ -f "models/${TICKER}_ensemble_clf.pkl" ]; then
+          # Check model age
+          MODEL_AGE=$(find models/${TICKER}_ensemble_clf.pkl -mtime +7 2>/dev/null && echo "old" || echo "new")
+          if [ "$MODEL_AGE" = "old" ]; then
+            echo "retrain=true" >> $GITHUB_OUTPUT
+            echo "🔄 Models are older than 7 days"
+          else
+            echo "retrain=false" >> $GITHUB_OUTPUT
+            echo "✅ Models are recent, skipping retrain"
+          fi
+        else
+          echo "retrain=true" >> $GITHUB_OUTPUT
+          echo "🔄 No models found, retraining needed"
+        fi
+        
+    - name: Run pipeline
+      if: steps.check-retrain.outputs.retrain == 'true'
+      run: |
+        python run_pipeline.py \
+          --ticker "${{ env.TICKER }}" \
+          --lookback-days 120 \
+          --max-articles 500
+        
+    - name: Upload new models
+      if: steps.check-retrain.outputs.retrain == 'true'
+      uses: actions/upload-artifact@v3
+      with:
+        name: retrained-models-${{ env.TICKER }}
+        path: models/
+        retention-days: 30
+        
+    - name: Upload reports
+      if: steps.check-retrain.outputs.retrain == 'true'
+      uses: actions/upload-artifact@v3
+      with:
+        name: retrain-reports-${{ env.TICKER }}
+        path: reports/
+        retention-days: 30
+        
+    - name: Create retrain summary
+      run: |
+        if [ "${{ steps.check-retrain.outputs.retrain }}" = "true" ]; then
+          echo "## 🔄 Model Retraining Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Ticker:** ${{ env.TICKER }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Models retrained successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 New Models:" >> $GITHUB_STEP_SUMMARY
+          echo "- Classification ensemble" >> $GITHUB_STEP_SUMMARY
+          echo "- Regression ensemble" >> $GITHUB_STEP_SUMMARY
+          echo "- Individual models" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📈 Reports Generated:" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance metrics" >> $GITHUB_STEP_SUMMARY
+          echo "- Backtest results" >> $GITHUB_STEP_SUMMARY
+          echo "- Diagnostic plots" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "## ✅ Model Retraining Skipped" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Models for ${{ env.TICKER }} are recent and don't need retraining." >> $GITHUB_STEP_SUMMARY
+        fi

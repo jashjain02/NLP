@@ -1,0 +1,120 @@
+# NLP Finance Pipeline Configuration
+# This file configures the automated pipeline workflow
+
+# Default parameters
+defaults:
+  ticker: "AAPL"
+  lookback_days: 120
+  max_articles: 500
+  
+# Data collection settings
+data_collection:
+  stock:
+    sources: ["yahoo"]
+    cache_days: 7
+    
+  news:
+    sources: ["moneycontrol", "newsapi", "marketaux", "rss", "gdelt"]
+    max_articles_per_source: 100
+    cache_days: 1
+    
+# Preprocessing settings
+preprocessing:
+  trading_calendar: "NYSE"
+  min_data_points: 30
+  fill_method: "forward"
+  
+# Feature engineering
+features:
+  technical_indicators:
+    - "sma_5"
+    - "sma_20"
+    - "rsi"
+    - "macd"
+    - "bollinger_bands"
+    - "momentum"
+    
+  sentiment_features:
+    - "mean_sentiment"
+    - "sentiment_std"
+    - "positive_ratio"
+    - "negative_ratio"
+    
+  lag_features:
+    - 1
+    - 3
+    - 7
+    - 14
+    
+# Model training
+modeling:
+  classification:
+    models: ["logistic", "random_forest", "xgboost"]
+    cv_splits: 5
+    test_size: 0.2
+    
+  regression:
+    models: ["ridge", "random_forest", "xgboost"]
+    cv_splits: 5
+    test_size: 0.2
+    
+  ensemble:
+    voting_type: "soft"
+    min_models: 2
+    
+# Evaluation
+evaluation:
+  metrics:
+    classification: ["accuracy", "f1", "precision", "recall", "auc"]
+    regression: ["mse", "mae", "r2", "mape"]
+    
+  plots:
+    - "confusion_matrix"
+    - "roc_curve"
+    - "feature_importance"
+    - "rolling_accuracy"
+    
+# Backtesting
+backtesting:
+  strategy:
+    threshold: 0.55
+    transaction_cost: 0.0005
+    position_sizing: "equal_weight"
+    
+  risk_metrics:
+    - "sharpe_ratio"
+    - "max_drawdown"
+    - "volatility"
+    - "calmar_ratio"
+    
+# Deployment
+deployment:
+  streamlit:
+    auto_deploy: true
+    update_models: true
+    
+  artifacts:
+    models: 30  # days
+    reports: 30  # days
+    data: 7  # days
+    
+# Notifications
+notifications:
+  email:
+    enabled: false
+    recipients: []
+    
+  slack:
+    enabled: false
+    webhook_url: ""
+    
+# Monitoring
+monitoring:
+  performance_thresholds:
+    min_accuracy: 0.5
+    min_sharpe: 0.5
+    max_drawdown: 0.1
+    
+  alerts:
+    enabled: true
+    channels: ["github_actions"]
